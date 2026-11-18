@@ -7,11 +7,18 @@ Dual-Head Architecture:
 
 import math
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-class OBECognitiveNeuralNetwork(nn.Module):
+try:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    TORCH_AVAILABLE = True
+    _BaseModule = nn.Module
+except ImportError:
+    TORCH_AVAILABLE = False
+    _BaseModule = object
+
+class OBECognitiveNeuralNetwork(_BaseModule):
     def __init__(self, vocab_size: int, embed_dim: int = 128, hidden_dim: int = 64, proj_dim: int = 64):
         super(OBECognitiveNeuralNetwork, self).__init__()
         self.vocab_size = vocab_size
