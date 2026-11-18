@@ -46,6 +46,7 @@ class RetrainRequest(BaseModel):
     epochs: Optional[int] = 100
 
 @app.get("/api/health")
+@app.get("/health")
 def health_check():
     engine = get_engine()
     return {
@@ -57,10 +58,12 @@ def health_check():
     }
 
 @app.get("/api/courses")
+@app.get("/courses")
 def get_courses():
     return COURSE_CATALOG
 
 @app.post("/api/upload")
+@app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
     """Upload exam paper (.pdf, .docx, .txt) and extract segmented questions with marks."""
     allowed_exts = (".pdf", ".docx", ".doc", ".txt")
@@ -79,6 +82,7 @@ async def upload_document(file: UploadFile = File(...)):
     }
 
 @app.post("/api/match")
+@app.post("/match")
 def match_questions(req: MatchRequest):
     """
     Match questions against Course Learning Outcomes (CLOs) using the local neural model.
@@ -160,6 +164,7 @@ def match_questions(req: MatchRequest):
     }
 
 @app.post("/api/parse-curriculum")
+@app.post("/parse-curriculum")
 async def parse_curriculum(file: UploadFile = File(...)):
     """Parse entire curriculum PDF or text document into course CLO sets."""
     content = await file.read()
