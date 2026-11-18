@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLO Paper Checker | Automated OBE Alignment</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Interactive Liquid Canvas Background -->
+    <canvas id="liquid-canvas"></canvas>
+
+    <div class="app-wrapper">
+        <!-- Header / Navigation Bar -->
+        <header class="navbar">
+            <div class="brand-section">
+                <div class="brand-icon-box">✦</div>
+                <div class="brand-titles">
+                    <h1>CLO Paper Checker</h1>
+                    <p>Outcome-Based Education (OBE) Automated Alignment Engine</p>
+                </div>
+            </div>
+
+            <div class="system-status-pills">
+                <div class="status-pill" id="model-status-pill">
+                    <span class="status-dot"></span>
+                    <span id="model-status-text">Local Neural Model Active</span>
+                </div>
+                <div class="mode-badge">0 API Keys • 100% Offline</div>
+            </div>
+        </header>
+
+        <!-- Main Configuration Grid -->
+        <div class="grid-2col">
+            <!-- Left Card: Course & CLOs -->
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2><span class="icon">📚</span> 1. Course & Outcomes (CLOs)</h2>
+                    <button class="btn btn-secondary btn-sm" id="btn-import-curriculum">Import Syllabus PDF</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label" for="course-select">Select Accredited Course</label>
+                    <select id="course-select" class="glass-select">
+                        <option value="">Loading course catalog...</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <div class="flex-between">
+                        <label class="control-label">Course Learning Outcomes</label>
+                        <span class="badge badge-lavender" id="clo-count-badge">4 Outcomes</span>
+                    </div>
+                    <div id="clos-container" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+
+                <div class="flex-between mt-12">
+                    <button class="btn btn-secondary btn-sm" id="btn-add-clo">+ Add Custom CLO</button>
+                    <span style="font-size: 11px; color: var(--text-muted);">Bloom Tiers: C1-C6 (Levels 1-3)</span>
+                </div>
+            </div>
+
+            <!-- Right Card: Exam Ingestion -->
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2><span class="icon">📄</span> 2. Exam Paper Ingestion</h2>
+                    <button class="btn btn-secondary btn-sm" id="btn-sample-exam">Load Sample Exam</button>
+                </div>
+
+                <!-- Drag and drop zone -->
+                <div class="dropzone" id="exam-dropzone">
+                    <div class="dropzone-icon">⇪</div>
+                    <div class="dropzone-text">Drop Exam File (.pdf, .docx, .txt)</div>
+                    <div class="dropzone-subtext">or click to browse from your computer</div>
+                    <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt" style="display: none;">
+                </div>
+
+                <!-- Textarea for paste/edit -->
+                <div class="control-group mt-12">
+                    <div class="flex-between">
+                        <label class="control-label" for="exam-text">Or Paste Exam Questions & Marks</label>
+                        <span id="parsed-stats" style="font-size: 12px; color: var(--green-300); font-weight: 600;"></span>
+                    </div>
+                    <textarea id="exam-text" class="glass-textarea" placeholder="Paste questions here or load a file... Example:
+Q1. [CLO-1] Define encapsulation and explain its role in object-oriented design. [5 marks]
+Q2. Design a polymorphic shape hierarchy using abstract classes in C++. (10 marks)"></textarea>
+                </div>
+
+                <button class="btn btn-primary" id="btn-run-alignment" style="width: 100%; margin-top: 8px;">
+                    ⚡ Run Local Cognitive Alignment
+                </button>
+            </div>
+        </div>
+
+        <!-- Hidden Curriculum Upload Modal/Trigger -->
+        <input type="file" id="curriculum-file-input" accept=".pdf,.txt" style="display: none;">
+
+        <!-- OBE Analytics Dashboard (Visible after match) -->
+        <div id="results-section" style="display: none;">
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2><span class="icon">📊</span> 3. OBE Alignment Analytics</h2>
+                    <div class="gap-8" style="display: flex;">
+                        <button class="btn btn-secondary btn-sm" id="btn-export-report">Export JSON</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-print-report">Print Audit Report</button>
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <!-- Gauge Box -->
+                    <div class="gauge-box">
+                        <div class="gauge-score score-pass" id="alignment-score-val">0%</div>
+                        <div class="gauge-label">Paper Alignment Score</div>
+                        <div id="alignment-status-badge" class="badge badge-green mt-12">Accreditation Pass</div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;" id="total-marks-label">
+                            Total Marks: 0 | Questions: 0
+                        </div>
+                    </div>
+
+                    <!-- Marks Weighted Coverage Bars -->
+                    <div class="coverage-bars-container" id="coverage-bars-list">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- Discrepancy & Coverage Alerts -->
+                <div id="alerts-container" class="mt-20"></div>
+            </div>
+
+            <!-- Question Review Table -->
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2><span class="icon">🔍</span> 4. Question-by-Question Alignment Review</h2>
+                    <span style="font-size: 12px; color: var(--text-secondary);">
+                        Human-in-the-Loop Override Enabled (Faculty Discretion)
+                    </span>
+                </div>
+
+                <div class="table-container">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">Q#</th>
+                                <th>Question Content</th>
+                                <th style="width: 80px;">Marks</th>
+                                <th style="width: 110px;">Predicted CLO</th>
+                                <th style="width: 110px;">Cognitive Tier</th>
+                                <th style="width: 100px;">Confidence</th>
+                                <th>AI Rationale</th>
+                                <th style="width: 150px;">Disagree? Override</th>
+                            </tr>
+                        </thead>
+                        <tbody id="questions-table-body">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/liquid.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
