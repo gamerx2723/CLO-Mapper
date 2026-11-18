@@ -1,7 +1,8 @@
 /**
- * Interactive Liquid Canvas Simulation
- * Simulates fluid dynamics with ripples, viscous damping, and cursor interaction.
- * Styled with metallic lavender-green and deep obsidian refraction.
+ * Interactive Liquid Light Trail Simulation
+ * Replaces surface ripples with an ethereal, smooth, non-distracting cursor light trail.
+ * Palette: Deep obsidian backdrop with glowing lavender-green luminous ribbons.
+ * Engineered for 100% UI readability and 60fps performance.
  */
 
 (function () {
@@ -12,195 +13,214 @@
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Grid resolution for wave simulation
-    const CELL_SIZE = 12;
-    let cols = Math.ceil(width / CELL_SIZE) + 1;
-    let rows = Math.ceil(height / CELL_SIZE) + 1;
+    // Trail points history
+    const MAX_POINTS = 32;
+    const points = [];
 
-    let buffer1 = new Float32Array(cols * rows);
-    let buffer2 = new Float32Array(cols * rows);
-    let damping = 0.965; // Fluid viscosity damping
+    // Floating ambient liquid embers
+    const EMBER_COUNT = 18;
+    const embers = [];
 
-    let mouse = { x: width / 2, y: height / 2, px: width / 2, py: height / 2, isDown: false, moving: false };
-    let lastMoveTime = Date.now();
+    let mouse = {
+        x: width / 2,
+        y: height / 2,
+        px: width / 2,
+        py: height / 2,
+        speed: 0,
+        active: false
+    };
 
     function resize() {
         width = canvas.width = window.innerWidth;
         height = canvas.height = window.innerHeight;
-        cols = Math.ceil(width / CELL_SIZE) + 1;
-        rows = Math.ceil(height / CELL_SIZE) + 1;
-        buffer1 = new Float32Array(cols * rows);
-        buffer2 = new Float32Array(cols * rows);
     }
     window.addEventListener("resize", resize);
 
-    function addDisturbance(x, y, radius, force) {
-        const cx = Math.floor(x / CELL_SIZE);
-        const cy = Math.floor(y / CELL_SIZE);
-        const rad = Math.ceil(radius / CELL_SIZE);
-
-        for (let j = -rad; j <= rad; j++) {
-            for (let i = -rad; i <= rad; i++) {
-                const nx = cx + i;
-                const ny = cy + j;
-                if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1) {
-                    const distSq = i * i + j * j;
-                    if (distSq <= rad * rad) {
-                        const falloff = 1 - Math.sqrt(distSq) / rad;
-                        buffer1[ny * cols + nx] += force * falloff;
-                    }
-                }
-            }
-        }
+    // Initialize floating ambient embers
+    for (let i = 0; i < EMBER_COUNT; i++) {
+        embers.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: (Math.random() - 0.5) * 0.4,
+            radius: Math.random() * 80 + 40,
+            hue: Math.random() > 0.5 ? "lavender" : "green",
+            alpha: Math.random() * 0.04 + 0.015,
+            phase: Math.random() * Math.PI * 2
+        });
     }
 
-    // Pointer events
+    // Pointer tracking
     window.addEventListener("pointermove", (e) => {
-        const dx = e.clientX - mouse.px;
-        const dy = e.clientY - mouse.py;
-        const speed = Math.sqrt(dx * dx + dy * dy);
-
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
-        mouse.moving = true;
-        lastMoveTime = Date.now();
-
-        // Stronger ripple on faster cursor movement
-        const force = Math.min(65, Math.max(15, speed * 1.8));
-        const radius = Math.min(45, Math.max(20, speed * 0.8));
-        addDisturbance(mouse.x, mouse.y, radius, force);
+        const dx = e.clientX - mouse.x;
+        const dy = e.clientY - mouse.y;
+        mouse.speed = Math.sqrt(dx * dx + dy * dy);
 
         mouse.px = mouse.x;
         mouse.py = mouse.y;
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+        mouse.active = true;
+
+        // Push new point into trail
+        points.unshift({
+            x: mouse.x,
+            y: mouse.y,
+            age: 0,
+            maxAge: 32,
+            speed: Math.min(45, mouse.speed)
+        });
+
+        if (points.length > MAX_POINTS) {
+            points.pop();
+        }
     });
 
-    window.addEventListener("pointerdown", (e) => {
-        mouse.isDown = true;
-        addDisturbance(e.clientX, e.clientY, 50, 90);
+    window.addEventListener("pointerleave", () => {
+        mouse.active = false;
     });
 
-    window.addEventListener("pointerup", () => {
-        mouse.isDown = false;
-    });
+    function drawAmbientEmbers() {
+        for (let i = 0; i < embers.length; i++) {
+            const em = embers[i];
+            em.x += em.vx;
+            em.y += em.vy;
+            em.phase += 0.01;
 
-    // Ambient floating drops when idle
-    let idleCounter = 0;
-    function addAmbientRipples() {
-        idleCounter++;
-        if (idleCounter % 75 === 0) {
-            const rx = Math.random() * width;
-            const ry = Math.random() * height;
-            addDisturbance(rx, ry, 30, 35);
+            // Screen wrap
+            if (em.x < -100) em.x = width + 100;
+            if (em.x > width + 100) em.x = -100;
+            if (em.y < -100) em.y = height + 100;
+            if (em.y > height + 100) em.y = -100;
+
+            const pulseAlpha = em.alpha * (0.8 + 0.2 * Math.sin(em.phase));
+            const grad = ctx.createRadialGradient(em.x, em.y, 0, em.x, em.y, em.radius);
+
+            if (em.hue === "lavender") {
+                grad.addColorStop(0, `rgba(168, 85, 247, ${pulseAlpha})`);
+                grad.addColorStop(0.6, `rgba(147, 51, 234, ${pulseAlpha * 0.4})`);
+                grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+            } else {
+                grad.addColorStop(0, `rgba(16, 185, 129, ${pulseAlpha})`);
+                grad.addColorStop(0.6, `rgba(5, 150, 105, ${pulseAlpha * 0.4})`);
+                grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+            }
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(em.x, em.y, em.radius, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
-    function stepPhysics() {
-        // Wave propagation equation
-        for (let y = 1; y < rows - 1; y++) {
-            const yCols = y * cols;
-            for (let x = 1; x < cols - 1; x++) {
-                const idx = yCols + x;
-                const wave = (
-                    buffer1[idx - 1] +
-                    buffer1[idx + 1] +
-                    buffer1[idx - cols] +
-                    buffer1[idx + cols]
-                ) * 0.5 - buffer2[idx];
+    function drawLightTrail() {
+        if (points.length < 2) return;
 
-                buffer2[idx] = wave * damping;
-            }
+        // Age points
+        for (let i = 0; i < points.length; i++) {
+            points[i].age++;
         }
 
-        // Swap buffers
-        const temp = buffer1;
-        buffer1 = buffer2;
-        buffer2 = temp;
-    }
-
-    function render() {
-        ctx.fillStyle = "#07070a";
-        ctx.fillRect(0, 0, width, height);
-
-        // Draw metallic liquid contours
-        const imgData = ctx.createImageData(cols, rows);
-        const data = imgData.data;
-
-        for (let y = 0; y < rows; y++) {
-            const yCols = y * cols;
-            for (let x = 0; x < cols; x++) {
-                const idx = yCols + x;
-                const val = buffer1[idx];
-
-                // Calculate surface normal gradient
-                const left = x > 0 ? buffer1[idx - 1] : val;
-                const right = x < cols - 1 ? buffer1[idx + 1] : val;
-                const up = y > 0 ? buffer1[idx - cols] : val;
-                const down = y < rows - 1 ? buffer1[idx + cols] : val;
-
-                const dx = (right - left) * 2.0;
-                const dy = (down - up) * 2.0;
-
-                // Specular lighting calculation
-                const lightX = 0.55;
-                const lightY = -0.7;
-                const spec = Math.max(0, (dx * lightX + dy * lightY) / Math.sqrt(dx * dx + dy * dy + 4.0));
-
-                const pIdx = idx * 4;
-
-                // Base obsidian color
-                let r = 8;
-                let g = 8;
-                let b = 12;
-
-                // Lavender component (from depth & curvature)
-                const lavender = Math.min(220, Math.max(0, val * 2.8 + spec * 120));
-                // Green emerald component (from cross-gradient)
-                const green = Math.min(200, Math.max(0, -val * 2.2 + spec * 90 + Math.abs(dx) * 2.0));
-                // Red subtle highlight on high disturbance peaks
-                const red = Math.min(180, Math.max(0, Math.abs(val) > 40 ? (Math.abs(val) - 40) * 3 : 0));
-
-                r += Math.floor(lavender * 0.65 + red * 0.8);
-                g += Math.floor(green * 0.75 + lavender * 0.3);
-                b += Math.floor(lavender * 0.95 + 15);
-
-                data[pIdx] = Math.min(255, r);
-                data[pIdx + 1] = Math.min(255, g);
-                data[pIdx + 2] = Math.min(255, b);
-                data[pIdx + 3] = Math.min(255, Math.floor(40 + Math.abs(val) * 3.5 + spec * 140));
-            }
+        // Remove dead points
+        while (points.length > 0 && points[points.length - 1].age >= points[points.length - 1].maxAge) {
+            points.pop();
         }
 
-        // Draw scaled liquid image with smooth blur
-        const offCanvas = document.createElement("canvas");
-        offCanvas.width = cols;
-        offCanvas.height = rows;
-        const offCtx = offCanvas.getContext("2d");
-        offCtx.putImageData(imgData, 0, 0);
+        if (points.length < 2) return;
 
         ctx.save();
-        ctx.imageSmoothingEnabled = true;
         ctx.globalCompositeOperation = "screen";
-        ctx.drawImage(offCanvas, 0, 0, width, height);
 
-        // Additional radial glow around cursor
-        if (mouse.x > 0 && mouse.y > 0) {
-            const radGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 240);
-            radGrad.addColorStop(0, "rgba(168, 85, 247, 0.15)");
-            radGrad.addColorStop(0.5, "rgba(16, 185, 129, 0.08)");
-            radGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-            ctx.fillStyle = radGrad;
+        // 1. Draw soft diffused fluid ribbon
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+
+            const lifeRatio = 1 - p1.age / p1.maxAge;
+            const widthScale = (14 + p1.speed * 0.6) * lifeRatio;
+            const alpha = 0.16 * lifeRatio;
+
+            // Alternate chromatic glow between lavender and green
+            const isLavender = i % 2 === 0;
+            const colorCore = isLavender
+                ? `rgba(192, 132, 252, ${alpha * 1.2})`
+                : `rgba(52, 211, 153, ${alpha * 1.2})`;
+            const colorEdge = isLavender
+                ? `rgba(147, 51, 234, 0)`
+                : `rgba(16, 185, 129, 0)`;
+
+            const midX = (p1.x + p2.x) * 0.5;
+            const midY = (p1.y + p2.y) * 0.5;
+
+            const radialGrad = ctx.createRadialGradient(midX, midY, 0, midX, midY, Math.max(20, widthScale * 2.5));
+            radialGrad.addColorStop(0, colorCore);
+            radialGrad.addColorStop(1, colorEdge);
+
+            ctx.fillStyle = radialGrad;
             ctx.beginPath();
-            ctx.arc(mouse.x, mouse.y, 240, 0, Math.PI * 2);
+            ctx.arc(midX, midY, Math.max(20, widthScale * 2.5), 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // 2. Draw sharp, flowing luminous core spine
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const lifeRatio = 1 - p1.age / p1.maxAge;
+
+            const lineGrad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            const coreAlpha = 0.35 * lifeRatio;
+
+            lineGrad.addColorStop(0, `rgba(233, 213, 255, ${coreAlpha})`);
+            lineGrad.addColorStop(0.5, `rgba(168, 85, 247, ${coreAlpha * 0.9})`);
+            lineGrad.addColorStop(1, `rgba(52, 211, 153, ${coreAlpha * 0.7})`);
+
+            ctx.strokeStyle = lineGrad;
+            ctx.lineWidth = Math.max(1.5, 4.5 * lifeRatio);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
         }
 
         ctx.restore();
     }
 
+    function drawCursorAura() {
+        if (!mouse.active) return;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+
+        // Gentle, non-intrusive cursor spotlight that backlights glass cards
+        const radGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 140);
+        radGrad.addColorStop(0, "rgba(192, 132, 252, 0.12)");
+        radGrad.addColorStop(0.4, "rgba(16, 185, 129, 0.06)");
+        radGrad.addColorStop(0.8, "rgba(239, 68, 68, 0.02)");
+        radGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        ctx.fillStyle = radGrad;
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, 140, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
     function animate() {
-        stepPhysics();
-        addAmbientRipples();
-        render();
+        // Deep obsidian solid clear ensuring crystal-clear text readability
+        ctx.fillStyle = "#07070a";
+        ctx.fillRect(0, 0, width, height);
+
+        drawAmbientEmbers();
+        drawLightTrail();
+        drawCursorAura();
+
         requestAnimationFrame(animate);
     }
 
