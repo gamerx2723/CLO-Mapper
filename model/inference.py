@@ -22,29 +22,44 @@ BLOOM_TIER_MAPPING = {
 }
 
 class LocalOBEEngine:
-    def __init__(self, artifacts_dir: str = "model/artifacts"):
+    def __init__(self, artifacts_dir: str = None):
+        if artifacts_dir is None:
+            artifacts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "artifacts")
         self.artifacts_dir = artifacts_dir
         self.loaded = False
         self._load_artifacts()
 
     def _load_artifacts(self):
+        # 1. Primary: Load embedded weights (zero filesystem IO, 100% cloud & Vercel compatible)
+        try:
+            from model.weights_data import WEIGHTS_DATA, VECTORIZER_META
+            self.vocab = VECTORIZER_META["vocabulary"]
+            self.idf = np.array(VECTORIZER_META["idf"], dtype=np.float32)
+            self.input_dim = VECTORIZER_META["input_dim"]
+            self.nn = FastNumPyInference(WEIGHTS_DATA)
+            self.loaded = True
+            return
+        except Exception:
+            pass
+
+        # 2. Secondary: Fallback to reading files on disk
         weights_path = os.path.join(self.artifacts_dir, "model_weights.json")
         vectorizer_path = os.path.join(self.artifacts_dir, "vectorizer.json")
 
-        if not os.path.exists(weights_path) or not os.path.exists(vectorizer_path):
-            raise FileNotFoundError(f"Model artifacts not found in {self.artifacts_dir}. Run `python -m model.train` first.")
+        if os.path.exists(weights_path) and os.path.exists(vectorizer_path):
+            with open(weights_path, "r") as f:
+                weights_data = json.load(f)
+            with open(vectorizer_path, "r") as f:
+                self.vec_meta = json.load(f)
 
-        with open(weights_path, "r") as f:
-            weights_data = json.load(f)
-        with open(vectorizer_path, "r") as f:
-            self.vec_meta = json.load(f)
+            self.vocab = self.vec_meta["vocabulary"]
+            self.idf = np.array(self.vec_meta["idf"], dtype=np.float32)
+            self.input_dim = self.vec_meta["input_dim"]
+            self.nn = FastNumPyInference(weights_data)
+            self.loaded = True
+            return
 
-        self.vocab = self.vec_meta["vocabulary"]
-        self.idf = np.array(self.vec_meta["idf"], dtype=np.float32)
-        self.input_dim = self.vec_meta["input_dim"]
-
-        self.nn = FastNumPyInference(weights_data)
-        self.loaded = True
+        raise FileNotFoundError(f"Model artifacts not found in {self.artifacts_dir}. Run `python -m model.train` first.")
 
     def _transform_text(self, text: str) -> np.ndarray:
         text_lower = text.lower()

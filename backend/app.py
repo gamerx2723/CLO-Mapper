@@ -178,6 +178,9 @@ if os.path.exists(static_dir):
 
 @app.get("/")
 def serve_home():
+    root_index = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "index.html")
+    if os.path.exists(root_index):
+        return FileResponse(root_index)
     index_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
