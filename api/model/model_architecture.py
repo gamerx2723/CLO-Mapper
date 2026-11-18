@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Neural Network Architecture for OBE Cognitive Classification and CLO Alignment
 Dual-Head Architecture:
@@ -6,6 +7,7 @@ Dual-Head Architecture:
 """
 
 import math
+from typing import Any, Tuple, Dict, Optional
 import numpy as np
 
 try:
@@ -15,6 +17,7 @@ try:
     TORCH_AVAILABLE = True
     _BaseModule = nn.Module
 except ImportError:
+    torch = None
     TORCH_AVAILABLE = False
     _BaseModule = object
 
@@ -47,7 +50,7 @@ class OBECognitiveNeuralNetwork(_BaseModule):
             nn.Linear(proj_dim, proj_dim)
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Any):
         h = self.fc1(x)
         h = self.norm1(h)
         h = self.activation(h)
